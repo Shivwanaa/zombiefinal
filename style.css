@@ -1,0 +1,13 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* Prevent scrolling */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+  canvas {
+    display: block;
+    border: 1px solid black; /* Optional: Add a border to the canvas */
+  }
