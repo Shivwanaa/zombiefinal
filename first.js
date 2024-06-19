@@ -5,6 +5,7 @@ let pausedZombieVelocities=[];
 const maxZombies=10;
 let totalZombiesKilled = 0;
 let jetpackAvailable = false;
+let b=false;
 
 
 function generateLeftZombie() {
@@ -80,50 +81,6 @@ function generateClimberZombie(side) {
     state.zombies.climbers.right = newZombie;
   }
 }
-// function generateimmunityzombies(side){
-//   const gap = 100;
-//   if (side === 'left' && !state.zombies.immunity.left) {
-//     const lastZombie = state.zombies.left[state.zombies.left.length - 1];
-//     const newX = lastZombie ? lastZombie.x - lastZombie.width - gap : -20;
-
-//     const newZombie = {
-//       x: newX,  // Ensure gap
-//       y: 650,
-//       velocityX: 1,
-//       velocitY:0,
-//       width: 40,
-//       height: 90,
-//       zbool: true,
-//       immunity:true,
-
-//       direction:-1,
-//     };
-//     state.zombies.left.push(newZombie);
-//     state.zombies.climbers.left = newZombie;
-//   } else if (side === 'right' && !state.zombies.climbers.right) {
-//     const lastZombie = state.zombies.right[state.zombies.right.length - 1];
-//     const newX = lastZombie ? lastZombie.x + lastZombie.width + gap : 1400;
-
-//     const newZombie = {
-//       x: newX,  // Ensure gap
-//       y: 650,
-//       velocityX: -1,
-//       velocitY:0,
-//       width: 40,
-//       height: 90,
-//       zbool: true,
-//       immunity:true,
-
-     
-//       direction:1,
-      
-//     };
-//     state.zombies.right.push(newZombie);
-//     state.zombies.immunity.right = newZombie;
-//   }
-
-
-// }
 function generateImmunityZombies() {
   const gap = 100;
   if (!state.zombies.immunity) {
@@ -142,7 +99,7 @@ function generateImmunityZombies() {
       width: 40,
       height: 90,
       zbool: true,
-      immunity: true,
+      immune: true,
       direction: -1
     };
     state.zombies.left.push(newZombie);
@@ -161,7 +118,7 @@ function generateImmunityZombies() {
       width: 40,
       height: 90,
       zbool: true,
-      immunity: true,
+      immune: true,
       direction: 1
     };
     state.zombies.right.push(newZombie);
@@ -297,7 +254,7 @@ let state = {
 };
 
 function generateZombies() {
-  for (let i = 0; i < maxZombies / 2; i++) {
+  for (let i = 0; i < 5; i++) {
     generateLeftZombie();
     generateRightZombie();
   }
@@ -305,17 +262,30 @@ function generateZombies() {
 
 // Function to check if all current zombies are dead
 function allZombiesDead() {
+  
   return state.zombies.left.every(zombie => !zombie.zbool) && state.zombies.right.every(zombie => !zombie.zbool);
 }
 
 // Function to manage zombie generation
 function manageZombieGeneration() {
+  // if(totalZombiesKilled===12){
+  //   state.zombies.climbers.left.zbool=false;
+  //   state.zombies.climbers.right.zbool=false;
+  //   state.zombies.immunity.left.zbool=false;
+  //   state.zombies.immunity.right.zbool=false;
+  // }
+  
+
+  // generateZombies();
   // Check if all current zombies are dead
+  
   if (!state.zombies.climbers.left) {
     generateClimberZombie('left');
+    // state.zombies.climbers.left=null;
   }
   if (!state.zombies.climbers.right) {
     generateClimberZombie('right');
+    
   }
   if (!state.zombies.immunity || !state.zombies.immunity.right) {
     generateImmunityZombies('right');
@@ -323,15 +293,22 @@ function manageZombieGeneration() {
   if (!state.zombies.immunity || !state.zombies.immunity.left) {
     generateImmunityZombies('left');
   }
-  if (allZombiesDead()) {
-    // Clear existing zombies
+  if(allZombiesDead()){
+    state.zombies.left=[];
+    state.zombies.right=[];
     blockDisappearing=true;
-    state.zombies.left = [];
-    state.zombies.right = [];
-    
-    // Generate new batch of zombies
+    state.zombies.climbers.left=false;
+    state.zombies.climbers.right=false;
+    state.zombies.immunity.right=false;
+    state.zombies.immunity.left=false;
+
     generateZombies();
+
+
   }
+ 
+  
+  
   
 }
 
@@ -430,6 +407,7 @@ function draw({ ctx, state }) {
 }
 
 function update({ progress }) {
+  
   manageZombieGeneration();
   const speed = progress * 0.1;
 
@@ -491,69 +469,42 @@ function update({ progress }) {
     if (state.bullet.x < 0 || state.bullet.x > canvas.width || state.bullet.y > canvas.height) {
       state.bullet.active = false;
     }
+    handleHitZombies();
     
-    const hitZombies = state.zombies.left.concat(state.zombies.right).filter(zombie => {
-      return state.bullet.x > zombie.x &&
-             state.bullet.x < zombie.x + zombie.width &&
-             state.bullet.y > zombie.y &&
-             state.bullet.y < zombie.y + zombie.height &&
-             zombie.zbool;
-    });
-    if (state.blocks.lblockb.blockpresent && state.bullet.active &&
-      state.bullet.x >= state.blocks.lblockb.x &&
-      state.bullet.x < state.blocks.lblockb.x + state.blocks.lblockb.width &&
-      state.bullet.y >= state.blocks.lblockb.y &&
-      state.bullet.y < state.blocks.lblockb.y + state.blocks.lblockb.width) {
-    
-    // Mark block as disappeared
-    
-   // Clear block from canvas
-    // state.bullet.active = false;  
-    state.blocks.lblockb.blockpresent = false;
-   
-  }
-  
-  // Check if the bullet hits rblocka
-  if (state.blocks.rblocka.blockpresent && state.bullet.active &&
-      state.bullet.x >= state.blocks.rblocka.x &&
-      state.bullet.x < state.blocks.rblocka.x + state.blocks.rblocka.width &&
-      state.bullet.y >= state.blocks.rblocka.y &&
-      state.bullet.y < state.blocks.rblocka.y + state.blocks.rblocka.width) {
-    
-     // Mark block as disappeared
-     
-      // Clear block from canvas
-      state.blocks.rblocka.blockpresent = false;
-    // state.bullet.active = false;  // Deactivate the bullet
-    console.log("Bullet hit rblocka, block disappeared!");
-  }
-  
-    if (hitZombies.length > 0) {
+    // const hitZombies = state.zombies.left.concat(state.zombies.right).filter(zombie => {
+    //   return state.bullet.x > zombie.x &&
+    //          state.bullet.x < zombie.x + zombie.width &&
+    //          state.bullet.y > zombie.y &&
+    //          state.bullet.y < zombie.y + zombie.height &&
+    //          zombie.zbool;
+    // });
+    // if (hitZombies.length > 0) {
 
-      console.log("Zombie hit!");
-      totalZombiesKilled++
-      if(state.zombies.left.immunity || state.zombies.right.immunity){
-        console.log("immunity");
-        lives=20;
-        state.zombies.immunity.right=false;
-        state.zombies.immunity.left=false;
+    //   console.log("Zombie hit!");
+    //   totalZombiesKilled++
+    //   if(state.zombies.left.immunity || state.zombies.right.immunity){
+    //     console.log("immunity");
+    //     lives=20;
+    //     state.zombies.immunity.right=false;
+    //     state.zombies.immunity.left=false;
 
-      }
-      if (totalZombiesKilled === 20) {
-        jetpackAvailable = true;
-        jetpack();
-        // Display a message or provide visual indication to the player
-      }
-      if(lives<10){
-      // state.bullet.active = false;
-      } 
-      // Remove hit zombies from the arrays
-      console.log(hitZombies);
-      state.zombies.left = state.zombies.left.filter(zombie => !hitZombies.includes(zombie));
-      state.zombies.right = state.zombies.right.filter(zombie => !hitZombies.includes(zombie));
+    //   }
+    //   if (totalZombiesKilled === 20) {
+    //     jetpackAvailable = true;
+    //     jetpack();
+    //     // Display a message or provide visual indication to the player
+    //   }
+    //   if(lives<10){
+    //   // state.bullet.active = false;
+    //   } 
+    //   // Remove hit zombies from the arrays
+    //   console.log(hitZombies);
+    //   state.zombies.left = state.zombies.left.filter(zombie => !hitZombies.includes(zombie));
+    //   state.zombies.right = state.zombies.right.filter(zombie => !hitZombies.includes(zombie));
 
       
-    }}
+    // }
+  }
 let prevZombieLeft = null;
 state.zombies.left.forEach(zombie => {
   if (zombie.zbool) {
@@ -596,7 +547,7 @@ state.zombies.right.forEach(zombie => {
 
   
   state.zombies.left.concat(state.zombies.right).forEach((zombie,index) => {
-    console.log(state.zombies.left);
+    
     let rightIndex = index - state.zombies.left.length;
     if( index<state.zombies.left.length){
     if(state.blocks.lblocka.x<=zombie.x+zombie.width)
@@ -648,23 +599,24 @@ if (zombie.isClimber && zombie.isClimbing) {
 
 else if (zombie.isClimber && zombie.finishedclimbing) {
   zombie.x += zombie.velocityX;
-  let intervalId;
+  // let intervalId;
 
   
 
 
   // Move forward after climbing
   if (zombie.direction === -1) {
-    intervalId = setInterval(() => {
-      // zombie.velocityX=-0.5;
-      vanish(state.blocks.lblocka, intervalId, zombie);  
-    }, 400);
+    // intervalId = setInterval(() => {
+    //   // zombie.velocityX=-0.5;
+    //   vanish(state.blocks.lblocka, intervalId, zombie);  
+    // }, 400);
     if (zombie.zbool && zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70) {
 
 
       zombie.velocityX = 0;
     
     livess(zombie);
+    console.log(state.zombies.left);
     }
       
     zombie.velocityX = 1;
@@ -674,10 +626,10 @@ else if (zombie.isClimber && zombie.finishedclimbing) {
       climberzombie(zombie, 180);
       if(zombie.x>=state.blocks.lblockb.x+90){
         if (zombie.x + zombie.width >= state.blocks.lblockb.x+90) {
-          intervalId = setInterval(() => {
-            // zombie.velocityX=-0.5;
-            vanish(state.blocks.lblockb, intervalId, zombie);  
-          }, 400);
+          // intervalId = setInterval(() => {
+          //   // zombie.velocityX=-0.5;
+          //   vanish(state.blocks.lblockb, intervalId, zombie);  
+          // }, 400);
           
           
           zombie.y=650;
@@ -687,10 +639,10 @@ else if (zombie.isClimber && zombie.finishedclimbing) {
   }
 }
 else if (zombie.direction === 1) {
-  intervalId = setInterval(() => {
-    // zombie.velocityX=-0.5;
-    vanish(state.blocks.rblocka, intervalId, zombie);  
-  }, 400);
+  // intervalId = setInterval(() => {
+  //   // zombie.velocityX=-0.5;
+  //   vanish(state.blocks.rblocka, intervalId, zombie);  
+  // }, 400);
   
   zombie.velocityX = -1;
   // dissapear(state.blocks.rblocka);
@@ -698,10 +650,10 @@ else if (zombie.direction === 1) {
     console.log("Right zombie climbing rblocka");
     climberzombie(zombie, 180);
     if (zombie.x+zombie.width <= state.blocks.rblockb.x) {
-      intervalId = setInterval(() => {
-        // zombie.velocityX=-0.5;
-        vanish(state.blocks.lblockb, intervalId, zombie);  
-      }, 400);
+      // intervalId = setInterval(() => {
+      //   // zombie.velocityX=-0.5;
+      //   vanish(state.blocks.lblockb, intervalId, zombie);  
+      // }, 400);
       
       // dissapear(state.blocks.rblockb);
       zombie.y = 650;
@@ -716,6 +668,7 @@ else if (zombie.direction === 1) {
   if ((zombie.direction === -1) && (zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70)) {
     zombie.velocityX = 0;
     zombie.x = state.box.x - zombie.width;
+    handleHitZombies();
     livess(zombie);
   
   }
@@ -724,7 +677,8 @@ else if (zombie.direction === 1) {
 
   if ((zombie.direction === 1) && (zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70)) {
     zombie.velocityX = 0;
-    zombie.x = state.box.x + 70; // Adjust position to ensure no overlap
+    zombie.x = state.box.x + 70;
+    handleHitZombies(); // Adjust position to ensure no overlap
     console.log("Climber zombie collided with the box and stopped.");
     livess(zombie);
   }
@@ -754,10 +708,8 @@ else if (zombie.direction === 1) {
 
 
 if (zombie.zbool && zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70) {
-
-
+  handleHitZombies();
     zombie.velocityX = 0;
-  
   livess(zombie);
   }
   //   if (!contactTimes.has(zombie)) {
@@ -1099,4 +1051,50 @@ function livess(zombie){
 // else {
 //   contactTimes.delete(zombie);
 // }
+let a;
 
+function handleHitZombies() {
+  let hitZombies = state.zombies.left.concat(state.zombies.right).filter(zombie => {
+    return state.bullet.x > zombie.x &&
+           state.bullet.x < zombie.x + zombie.width &&
+           state.bullet.y > zombie.y &&
+           state.bullet.y < zombie.y + zombie.height &&
+           zombie.zbool;
+  });
+  // hitZombies.forEach(zombie => {
+  //   zombie.zbool = false;
+  // });
+
+  if (hitZombies.length > 0) {
+  
+    console.log("Zombie hit!");
+    totalZombiesKilled++;
+    // if(totalZombiesKilled===12){
+    //   state.zombies.climbers.left.zbool=false;
+    //   state.zombies.climbers.right.zbool=false;
+    //   state.zombies.immunity.left.zbool=false;
+    //   state.zombies.immunity.right.zbool=false;
+    // }
+    const hitImmunityZombie = hitZombies.some(zombie => zombie.immune);
+
+
+    if (hitImmunityZombie) {
+      console.log("Immunity zombie hit!");
+      lives = 10; // Restore lives to 20
+    }
+
+    if (totalZombiesKilled === 20) {
+      jetpackAvailable = true;
+      jetpack();
+    }
+    // Remove hit zombies from the arrays
+    console.log(state.zombies.left);
+    console.log(state.zombies.right);
+    
+    // console.log(hitZombies);
+    state.zombies.left = state.zombies.left.filter(zombie => !hitZombies.includes(zombie));
+    state.zombies.right = state.zombies.right.filter(zombie => !hitZombies.includes(zombie));
+    console.log(state.zombies.right);
+    console.log(state.zombies.left);
+  }
+}
