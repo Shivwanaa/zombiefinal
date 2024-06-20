@@ -139,7 +139,7 @@ canvas.height = 750;
 var lives = 10;
 
 const bkGround = new Image();
-bkGround.src = '/images/zombie.png';
+bkGround.src = './images/zombie.png';
 bkGround.onload = function() {
   console.log('Image loaded successfully');
   ctx.drawImage(bkGround, 0, 0, canvas.width, canvas.height);
