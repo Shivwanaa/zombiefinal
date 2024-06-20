@@ -6,6 +6,8 @@ const maxZombies=10;
 let totalZombiesKilled = 0;
 let jetpackAvailable = false;
 let b=false;
+let vanr=false;
+let vanl=false;
 
 
 function generateLeftZombie() {
@@ -143,16 +145,16 @@ bkGround.onload = function() {
 };
 
 let state = {
-  bomb : {
-    active: false,       // Whether the bomb is currently active (thrown)
-  x: 0,                // X coordinate of the bomb
-  y: 0,                // Y coordinate of the bomb
-  radius: 50,          // Radius of the bomb explosion area
-  damage: 1,           // Damage inflicted by the bomb
-  velocityX: 5,        // Initial velocity in the X direction
-  velocityY: -10,      // Initial velocity in the Y direction (negative because it's upwards)
-  gravity: 0.5,         // Damage inflicted by the bomb
+  bomb: {
+    x: 0,
+    y: 0,
+    radius: 10, // Adjusted for bomb size
+    velocityX: 0,
+    velocityY: 0,
+    gravity: 0,
+    active: false,
   },
+
   blocks: {
     rblock: {
       x: 960,
@@ -268,17 +270,6 @@ function allZombiesDead() {
 
 // Function to manage zombie generation
 function manageZombieGeneration() {
-  // if(totalZombiesKilled===12){
-  //   state.zombies.climbers.left.zbool=false;
-  //   state.zombies.climbers.right.zbool=false;
-  //   state.zombies.immunity.left.zbool=false;
-  //   state.zombies.immunity.right.zbool=false;
-  // }
-  
-
-  // generateZombies();
-  // Check if all current zombies are dead
-  
   if (!state.zombies.climbers.left) {
     generateClimberZombie('left');
     // state.zombies.climbers.left=null;
@@ -332,6 +323,7 @@ function draw({ ctx, state }) {
   ctx.fillStyle = "blue";
   ctx.fillRect(state.box.x, state.box.y, 70, 200);
 
+  
   // Draw the zombies
   
   state.zombies.left.forEach(zombie => {
@@ -366,13 +358,19 @@ function draw({ ctx, state }) {
   ctx.fillStyle = "rgb(200 55 0)";
   ctx.fillRect(state.blocks.lblock.x, state.blocks.lblock.y, state.blocks.lblock.width, 90);
   ctx.fillRect(state.blocks.rblock.x, state.blocks.rblock.y, state.blocks.rblock.width, 90);
+  if(state.blocks.lblocka.blockpresent){
   ctx.fillStyle = "rgb(180 40 25)";
   ctx.fillRect(state.blocks.lblocka.x, state.blocks.lblocka.y, state.blocks.lblocka.width, 90);
+  }
+
   ctx.fillStyle = "rgb(180 40 25)";
   ctx.fillRect(state.blocks.lblockb.x, state.blocks.lblockb.y, state.blocks.lblockb.width, 90);
+  
+  
+ if(state.blocks.rblocka.blockpresent){
   ctx.fillStyle = "rgb(180 40 25)";
- 
   ctx.fillRect(state.blocks.rblocka.x, state.blocks.rblocka.y, state.blocks.rblocka.width, 90);
+ }
   ctx.fillStyle = "rgb(180 40 25)";
   ctx.fillRect(state.blocks.rblockb.x, state.blocks.rblockb.y, state.blocks.rblockb.width, 90);
   
@@ -404,14 +402,231 @@ function draw({ ctx, state }) {
     ctx.arc(state.bullet.x, state.bullet.y, 10, 0, 2 * Math.PI);
     ctx.fill();
   }
+  if (state.bomb.active) {
+    ctx.beginPath();
+    ctx.arc(state.bomb.x, state.bomb.y, state.bomb.radius, 0, 2 * Math.PI);
+    ctx.fillStyle = 'red';
+    ctx.fill();
+    ctx.closePath();
+  }
 }
 
 function update({ progress }) {
-  
   manageZombieGeneration();
   const speed = progress * 0.1;
+  updatePlayerPosition(speed);
+  updatePistonPosition();
+  updatePistonRotation();
+  updateBulletPosition(speed);
 
-  // Update box position based on arrow key state
+  let prevZombieLeft = null;
+  state.zombies.left.forEach(zombie => {
+    if (zombie.zbool) {
+      zombie.x += zombie.velocityX;
+
+      // Check if the zombie needs to stop because it's too close to the previous zombie
+      if (prevZombieLeft && (zombie.x + zombie.width >= prevZombieLeft.x - 5) && !(zombie.isClimber)) {
+        zombie.velocityX = 0;
+      } else if (prevZombieLeft && prevZombieLeft.velocityX === 0.5) {
+        // Match the velocity if the previous zombie is moving slowly
+        zombie.velocityX = 0.5;
+      } else {
+        zombie.velocityX = 1;
+      }
+
+      prevZombieLeft = zombie;
+    }
+  });
+
+  let prevZombieRight = null;
+  state.zombies.right.forEach(zombie => {
+    if (zombie.zbool) {
+      zombie.x += zombie.velocityX;
+
+      // Check if the zombie needs to stop because it's too close to the previous zombie
+      if (prevZombieRight && (zombie.x <= prevZombieRight.x + prevZombieRight.width + 5) && !(zombie.isClimber)) {
+        zombie.velocityX = 0;
+      } else if (prevZombieRight && prevZombieRight.velocityX === -0.5) {
+        // Match the velocity if the previous zombie is moving slowly
+        zombie.velocityX = -0.5;
+      } else {
+        zombie.velocityX = -1;
+      }
+
+      prevZombieRight = zombie;
+    }
+  });
+
+  state.zombies.left.concat(state.zombies.right).forEach((zombie, index) => {
+    let rightIndex = index - state.zombies.left.length;
+    if (index < state.zombies.left.length) {
+      if (state.blocks.lblocka.x <= zombie.x + zombie.width && state.blocks.lblocka.blockpresent) {
+        zombie.velocityX = 0;
+        if (index === 0) {
+          zombie.x = state.blocks.lblocka.x - zombie.width;
+        }
+      }
+    }
+
+    if (index >= state.zombies.left.length && state.blocks.rblocka.blockpresent) {
+      if (state.blocks.rblocka.x + 90 >= zombie.x) {
+        zombie.velocityX = 0;
+      }
+    }
+
+    if ((zombie === state.zombies.left[0] && state.blocks.lblock.blockpresent && zombie.zbool && zombie.x + zombie.width === state.blocks.lblock.x) ||
+        (zombie === state.zombies.right[0] && state.blocks.rblock.blockpresent && zombie.zbool && zombie.x === state.blocks.rblock.x + state.blocks.rblock.width)) {
+      console.log("shivu");
+      zombie.velocityX = 0;
+      if (!blockDisappearing && (zombie.x === state.blocks.rblock.x + state.blocks.rblock.width )&& state.blocks.rblock.blockpresent) {
+        console.log("ssss");
+        let intervalId = setInterval(() => {
+          vanish(state.blocks.rblock, intervalId, zombie);
+        }, 400);
+
+        if ((zombie.direction === -1) && (zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70)) {
+          zombie.velocityX = 0;
+          zombie.x = state.box.x - zombie.width;
+          handleHitZombies();
+          console.log(jetpackAvailable);
+          if (!jetpackAvailable) {
+            livess(zombie);
+          }
+        }
+      }
+
+      if (!blockDisappearing && (zombie.x + zombie.width === state.blocks.lblock.x) && state.blocks.lblock.blockpresent) {
+        console.log("ssss");
+        let intervalId = setInterval(() => {
+          vanish(state.blocks.lblock, intervalId, zombie);
+        }, 400);
+
+        if ((zombie.direction === 1) && (zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70)) {
+          zombie.velocityX = 0;
+          zombie.x = state.box.x + 70;
+          handleHitZombies();
+          console.log("Climber zombie collided with the box and stopped.");
+          console.log(jetpackAvailable);
+          if (!jetpackAvailable) {
+            livess(zombie);
+          }
+        }
+      }
+    }
+
+    if (zombie.isClimber && zombie.isClimbing) {
+      climberzombie(zombie, 90);
+    } else if (zombie.isClimber && zombie.finishedclimbing) {
+      zombie.x += zombie.velocityX;
+
+      if (zombie.direction === -1) {
+        if (zombie.zbool && zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70) {
+          zombie.velocityX = 0;
+          if (!jetpackAvailable) {
+            livess(zombie);
+            console.log(state.zombies.left);
+          }
+        }
+
+        zombie.velocityX = 1;
+        if (zombie.x + zombie.width >= state.blocks.lblockb.x) {
+          console.log("second");
+          climberzombie(zombie, 180);
+          if (zombie.x >= state.blocks.lblockb.x + 90) {
+            if (zombie.x + zombie.width >= state.blocks.lblockb.x + 90) {
+              vanisher(state.blocks.lblocka, zombie.direction);
+              zombie.y = 650;
+              if ((zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70)) {
+                zombie.velocityX = 0;
+                zombie.x = state.box.x - zombie.width;
+                handleHitZombies();
+                console.log(jetpackAvailable);
+                if (!jetpackAvailable) {
+                  livess(zombie);
+                }
+              }
+            }
+          }
+        }
+      } else if (zombie.direction === 1) {
+        zombie.velocityX = -1;
+        if (zombie.x <= state.blocks.rblockb.x + state.blocks.rblockb.width) {
+          console.log("Right zombie climbing rblocka");
+          climberzombie(zombie, 180);
+          secondclimbright = true;
+          if (zombie.x + zombie.width <= state.blocks.rblockb.x) {
+            vanisher(state.blocks.rblocka, zombie.direction);
+            zombie.y = 650;
+            // if ((zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70)) {
+            //   zombie.velocityX = 0;
+            //   zombie.x = state.box.x + 70;
+            //   handleHitZombies();
+            //   console.log("Climber zombie collided with the box and stopped.");
+            //   console.log(jetpackAvailable);
+            //   if (!jetpackAvailable) {
+            //     livess(zombie);
+            //   }
+            // }
+            if ((zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70)) {
+              zombie.velocityX = 0;
+              zombie.x = state.box.x + 70;
+              handleHitZombies();
+              console.log("Climber zombie collided with the box and stopped.");
+              console.log(jetpackAvailable);
+              if (!jetpackAvailable) {
+                livess(zombie);
+              }
+            }
+          }
+        }
+      }
+    } else {
+      // Regular zombie movement
+      if (zombie.direction === -1 && state.blocks.lblocka.x <= zombie.x + zombie.width && !zombie.immunity&& state.blocks.lblocka.blockpresent) {
+        zombie.velocityX = 0;
+
+        if (zombie.isClimber && !zombie.isClimbing ) {
+          zombie.isClimbing = true;
+          climberzombie(zombie, 90);
+        }
+      } else if (zombie.direction === 1 && state.blocks.rblocka.x + 90 >= zombie.x && !zombie.immunity && state.blocks.rblocka.blockpresent) {
+        zombie.velocityX = 0;
+
+        if (zombie.isClimber && !zombie.isClimbing) {
+          zombie.isClimbing = true;
+          climberzombie(zombie, 90);
+        }
+      }
+
+      // New logic to stop all zombies at the box
+      if (zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + state.box.width) {
+        zombie.velocityX = 0;
+        if (zombie.direction === -1) {
+          zombie.x = state.box.x - zombie.width;
+        } else if (zombie.direction === 1) {
+          zombie.x = state.box.x + state.box.width;
+        }
+        handleHitZombies();
+        console.log("Zombie collided with the box and stopped.");
+        console.log(jetpackAvailable);
+        if (!jetpackAvailable) {
+          livess(zombie);
+        }
+      }
+    }
+  });
+}
+
+
+
+
+
+
+
+
+
+
+function updatePlayerPosition(speed) {
   if (state.playerMoving.left) {
     state.box.x -= speed;
   }
@@ -420,14 +635,14 @@ function update({ progress }) {
   }
 
   // Prevent box from moving off screen
-  if (state.box.x < canvas.width / 2 - 200) {
-    state.box.x = canvas.width / 2 - 200;
-  }
-  if (state.box.x > canvas.width / 2 + 200 - 100) {
-    state.box.x = canvas.width / 2 + 200 - 100;
-  }
+  const minBoxX = canvas.width / 2 - 200;
+  const maxBoxX = canvas.width / 2 + 200 - 100;
+  state.box.x = Math.max(minBoxX, Math.min(maxBoxX, state.box.x));
 
-  // Update jump and gravity
+  updateBoxJump(speed);
+}
+
+function updateBoxJump(speed) {
   if (state.box.jumping) {
     state.box.velocityY -= speed;
     state.box.y += state.box.velocityY;
@@ -435,7 +650,7 @@ function update({ progress }) {
     if (state.box.initialY - state.box.y >= 30) {
       state.box.jumping = false;
     }
-  } else {
+  } else if (b) {
     if (state.box.y < state.box.initialY) {
       state.box.velocityY += speed;
       state.box.y += state.box.velocityY;
@@ -443,304 +658,45 @@ function update({ progress }) {
       if (state.box.y >= state.box.initialY) {
         state.box.y = state.box.initialY;
         state.box.velocityY = 0;
+        b = false;
       }
     }
   }
+}
 
-  // Update the piston's position to follow the box
+function updatePistonPosition() {
   state.piston.x = state.box.x + 55;
   state.piston.y = state.box.y + 50;
-  
+}
 
-  // Update the piston's rotation only if rotating is enabled
+function updatePistonRotation() {
   if (state.rotating) {
     const deltaX = state.mouse.x - state.piston.x;
     const deltaY = state.mouse.y - state.piston.y;
     state.piston.rotation = Math.atan2(deltaY, deltaX);
   }
+}
 
-  // Update bullet position if active
+function updateBulletPosition(speed) {
   if (state.bullet.active) {
     state.bullet.x += state.bullet.velocityX;
     state.bullet.y += state.bullet.velocityY;
     state.bullet.velocityY += state.gravity;
 
-    // Check if the bullet is off screen and deactivate it
     if (state.bullet.x < 0 || state.bullet.x > canvas.width || state.bullet.y > canvas.height) {
       state.bullet.active = false;
     }
+
     handleHitZombies();
-    
-    // const hitZombies = state.zombies.left.concat(state.zombies.right).filter(zombie => {
-    //   return state.bullet.x > zombie.x &&
-    //          state.bullet.x < zombie.x + zombie.width &&
-    //          state.bullet.y > zombie.y &&
-    //          state.bullet.y < zombie.y + zombie.height &&
-    //          zombie.zbool;
-    // });
-    // if (hitZombies.length > 0) {
-
-    //   console.log("Zombie hit!");
-    //   totalZombiesKilled++
-    //   if(state.zombies.left.immunity || state.zombies.right.immunity){
-    //     console.log("immunity");
-    //     lives=20;
-    //     state.zombies.immunity.right=false;
-    //     state.zombies.immunity.left=false;
-
-    //   }
-    //   if (totalZombiesKilled === 20) {
-    //     jetpackAvailable = true;
-    //     jetpack();
-    //     // Display a message or provide visual indication to the player
-    //   }
-    //   if(lives<10){
-    //   // state.bullet.active = false;
-    //   } 
-    //   // Remove hit zombies from the arrays
-    //   console.log(hitZombies);
-    //   state.zombies.left = state.zombies.left.filter(zombie => !hitZombies.includes(zombie));
-    //   state.zombies.right = state.zombies.right.filter(zombie => !hitZombies.includes(zombie));
-
-      
-    // }
-  }
-let prevZombieLeft = null;
-state.zombies.left.forEach(zombie => {
-  if (zombie.zbool) {
-    zombie.x += zombie.velocityX;
-    
-    // Check if the zombie needs to stop because it's too close to the previous zombie
-    if (prevZombieLeft && (zombie.x + zombie.width >= prevZombieLeft.x - 5) && !(zombie.isClimber)) {
-      zombie.velocityX = 0;
-    } else if (prevZombieLeft && prevZombieLeft.velocityX === 0.5) {
-      // Match the velocity if the previous zombie is moving slowly
-      zombie.velocityX = 0.5;
-    } else {
-      zombie.velocityX = 1;
-    }
-
-    prevZombieLeft = zombie;
-  }
-});
-
-let prevZombieRight = null;
-state.zombies.right.forEach(zombie => {
-  if (zombie.zbool) {
-    zombie.x += zombie.velocityX;
-
-    // Check if the zombie needs to stop because it's too close to the previous zombie
-    if (prevZombieRight && (zombie.x <= prevZombieRight.x + prevZombieRight.width + 5) && !(zombie.isClimber)) {
-      zombie.velocityX = 0;
-    }
-    
-     else if (prevZombieRight && prevZombieRight.velocityX === -0.5) {
-      // Match the velocity if the previous zombie is moving slowly
-      zombie.velocityX = -0.5;
-    } else {
-      zombie.velocityX = -1;
-    }
-
-    prevZombieRight = zombie;
-  }
-});
-
-  
-  state.zombies.left.concat(state.zombies.right).forEach((zombie,index) => {
-    
-    let rightIndex = index - state.zombies.left.length;
-    if( index<state.zombies.left.length){
-    if(state.blocks.lblocka.x<=zombie.x+zombie.width)
-    {
-      zombie.velocityX = 0;
-      if(index===0){
-       
-      zombie.x = state.blocks.lblocka.x - zombie.width;
-      }
-    }
-
-  }
-  if( index>=state.zombies.left.length){
-    if(state.blocks.rblocka.x+90>=zombie.x)
-    {
-      zombie.velocityX = 0
-    }
-    
-  }
-  
-    if ((zombie === state.zombies.left[0] &&state.blocks.lblock.blockpresent&& zombie.zbool &&zombie.x + zombie.width === state.blocks.lblock.x)||(zombie === state.zombies.right[0] &&state.blocks.rblock.blockpresent && zombie.zbool&&zombie.x === state.blocks.rblock.x + state.blocks.rblock.width)){
-      console.log("shivu");
-      zombie.velocityX = 0
-      if (!blockDisappearing && (zombie.x === state.blocks.rblock.x + state.blocks.rblock.width) && state.blocks.rblock.blockpresent) {
-        console.log("ssss");
-        // vanish(state.blocks.rblock,zombie);
-        let intervalId = setInterval(() => {
-          // zombie.velocityX=-0.5;
-          vanish(state.blocks.rblock, intervalId, zombie);  
-        }, 400);
-
-        // clearInterval(intervalId);
-        
-      }
-      if (!blockDisappearing && (zombie.x + zombie.width === state.blocks.lblock.x)&& state.blocks.lblock.blockpresent) {
-        
-        console.log("ssss");
-        // vanish(state.blocks.rblock,zombie);
-        let intervalId = setInterval(() => {
-          // zombie.velocityX=0.5;
-          vanish(state.blocks.lblock, intervalId, zombie);
-        }, 400);
-      }
-    }
-  
-if (zombie.isClimber && zombie.isClimbing) {
-  climberzombie(zombie, 90);
-}
-
-else if (zombie.isClimber && zombie.finishedclimbing) {
-  zombie.x += zombie.velocityX;
-  // let intervalId;
-
-  
-
-
-  // Move forward after climbing
-  if (zombie.direction === -1) {
-    // intervalId = setInterval(() => {
-    //   // zombie.velocityX=-0.5;
-    //   vanish(state.blocks.lblocka, intervalId, zombie);  
-    // }, 400);
-    if (zombie.zbool && zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70) {
-
-
-      zombie.velocityX = 0;
-    
-    livess(zombie);
-    console.log(state.zombies.left);
-    }
-      
-    zombie.velocityX = 1;
-    // dissapear(state.blocks.lblocka);
-    if (zombie.x + zombie.width >= state.blocks.lblockb.x) {
-      console.log("second");
-      climberzombie(zombie, 180);
-      if(zombie.x>=state.blocks.lblockb.x+90){
-        if (zombie.x + zombie.width >= state.blocks.lblockb.x+90) {
-          // intervalId = setInterval(() => {
-          //   // zombie.velocityX=-0.5;
-          //   vanish(state.blocks.lblockb, intervalId, zombie);  
-          // }, 400);
-          
-          
-          zombie.y=650;
-         
-      }
-    }
-  }
-}
-else if (zombie.direction === 1) {
-  // intervalId = setInterval(() => {
-  //   // zombie.velocityX=-0.5;
-  //   vanish(state.blocks.rblocka, intervalId, zombie);  
-  // }, 400);
-  
-  zombie.velocityX = -1;
-  // dissapear(state.blocks.rblocka);
-  if (zombie.x <= state.blocks.rblockb.x + state.blocks.rblockb.width) {
-    console.log("Right zombie climbing rblocka");
-    climberzombie(zombie, 180);
-    if (zombie.x+zombie.width <= state.blocks.rblockb.x) {
-      // intervalId = setInterval(() => {
-      //   // zombie.velocityX=-0.5;
-      //   vanish(state.blocks.lblockb, intervalId, zombie);  
-      // }, 400);
-      
-      // dissapear(state.blocks.rblockb);
-      zombie.y = 650;
-    }
   }
 }
 
 
 
-
-  // Check for collision with the box
-  if ((zombie.direction === -1) && (zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70)) {
-    zombie.velocityX = 0;
-    zombie.x = state.box.x - zombie.width;
-    handleHitZombies();
-    livess(zombie);
-  
-  }
+// Other functions related to game logic
 
 
-
-  if ((zombie.direction === 1) && (zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70)) {
-    zombie.velocityX = 0;
-    zombie.x = state.box.x + 70;
-    handleHitZombies(); // Adjust position to ensure no overlap
-    console.log("Climber zombie collided with the box and stopped.");
-    livess(zombie);
-  }
-}
-
- else {
-  // Regular zombie movement
-  if (zombie.direction === -1 && state.blocks.lblocka.x <= zombie.x + zombie.width && !zombie.immunity) {
-    zombie.velocityX = 0;
-
-    // Start climbing if the zombie is a climber and not already climbing
-    if (zombie.isClimber && !zombie.isClimbing) {
-      zombie.isClimbing = true; // Set the climbing state
-      climberzombie(zombie, 90); // Pass the specific zombie to the climberzombie function
-    }
-  } else if (zombie.direction === 1 && state.blocks.rblocka.x + 90 >= zombie.x && !zombie.immunity) {
-    zombie.velocityX = 0;
-
-    // Start climbing if the zombie is a climber and not already climbing
-    if (zombie.isClimber && !zombie.isClimbing) {
-    
-      zombie.isClimbing = true; // Set the climbing state
-      climberzombie(zombie, 90); // Pass the specific zombie to the climberzombie function
-    }
-  } 
-}
-
-
-if (zombie.zbool && zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70) {
-  handleHitZombies();
-    zombie.velocityX = 0;
-  livess(zombie);
-  }
-  //   if (!contactTimes.has(zombie)) {
-  //     contactTimes.set(zombie, Date.now());
-  //   } else {
-  //     const contactDuration = Date.now() - contactTimes.get(zombie);
-  //     if (contactDuration > 3000) {
-  //       console.log("Zombie contact duration exceeded 3 seconds. Lives left: " + lives);
-  //       lives--;
-  //       contactTimes.set(zombie, Date.now());
-  //       // contactTimes.delete(zombie);
-  //       if (lives === 0) {
-  //         console.log("Game Over!");
-  //         cancelAnimationFrame(gameLoop);
-  //         showGameoverScreen();
-  //         return;
-  //       }
-  //     }
-  //   }
-  // } 
-  // else {
-  //   contactTimes.delete(zombie);
-  // }
-
-
-
-});
-}
-
-let lastRender = 0;
-
+let lastRender=0;
 function gameLoop(timestamp) {
   const progress = timestamp - lastRender;
   update({ progress });
@@ -835,6 +791,7 @@ window.addEventListener('mousemove', (event) => {
   }
   if (event.code === 'ArrowUp' && state.box.y === state.box.initialY) {
   state.box.jumping = true; // Start the jump
+  b=true;
   state.box.velocityY = -10; // Set initial jump velocity
   }
   if (event.code === 'KeyV') {
@@ -919,69 +876,12 @@ window.addEventListener('mousemove', (event) => {
     ctx.fillStyle = "rgb(0 255 0)";
     ctx.fillRect(barX, barY, barWidth * lifePercentage, barHeight);
   }
-const grav = 0.2; // Gravity constant, adjust as needed
-let isJetpackActive = false;
-let hoverDuration = 0;
+
+
+
+
+const interval=10/60;
 const maxHoverDuration = 20 * 1000; // Maximum hover duration in milliseconds (20 seconds)
-
-function jetpack() {
-  if (isJetpackActive) {
-    // Apply gravity to velocityY
-    state.box.velocityY += grav;
-
-    // Update the vertical position of the player
-    state.box.y += state.box.velocityY;
-
-    // Limit maximum ascending speed
-    if (state.box.velocityY < -5) {
-      state.box.velocityY = -5; // Adjust maximum ascent speed as needed
-    }
-
-    // Limit maximum descending speed
-    if (state.box.velocityY > 5) {
-      state.box.velocityY = 5; // Adjust maximum descent speed as needed
-    }
-
-    // Increment hover duration
-    hoverDuration += 1000 / 60; // Assuming 60 FPS
-  }
-
-  // Ensure the player does not go below a certain y-position (ground level)
-  if (state.box.y >= 100) { // Adjust ground level as needed
-    state.box.y = 100; // Ensure player stays on ground level
-    state.box.velocityY = 0; // Reset velocity when on ground
-    hoverDuration = 0; // Reset hover duration
-  }
-}
-
-// Example key press event listener to activate jetpack
-document.addEventListener('keydown', event => {
-  if (event.key === 'j' && !isJetpackActive) { // Activate jetpack only if it's not already active
-    activateJetpack();
-  }
-});
-canvas.addEventListener('click', function(event) {
-  const mouseX = event.clientX - canvas.getBoundingClientRect().left;
-  const mouseY = event.clientY - canvas.getBoundingClientRect().top;
-
-  // Check if click is within jetpack button bounds
-  if (
-    mouseX >= jetpackButton.x &&
-    mouseX <= jetpackButton.x + jetpackButton.width &&
-    mouseY >= jetpackButton.y &&
-    mouseY <= jetpackButton.y + jetpackButton.height
-  ) {
-    activateJetpack();
-  }
-});
-function activateJetpack() {
-  if (!isJetpackActive && jetpackTimer <= 0) {
-    isJetpackActive = true; // Set jetpack active
-    state.box.velocityY = -5; // Initial upward velocity when jetpack is activated
-    jetpackTimer = jetpackDuration; // Start the jetpack countdown timer
-  }
-}
-
 
 function climberzombie(zombie,y) {
   const climbSpeed = 2;
@@ -1016,15 +916,7 @@ function throwBomb(x, y) {
     // Additional logic such as animation or sound effects can be added here
   }
 }
-// function dissapear(block){
-//   ctx.clearRect(block.x , block.y, 90, 90);
-// }
-// function isBulletInBlock(bullet, block) {
-//   return bullet.x >= block.x &&
-//          bullet.x < block.x + block.width &&
-//          bullet.y >= block.y &&
-//          bullet.y < block.y + block.height;
-// }
+
 function livess(zombie){
   console.log("shivu");
   // if (zombie.zbool && zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70) {
@@ -1047,10 +939,6 @@ function livess(zombie){
     }
   }
 }
- 
-// else {
-//   contactTimes.delete(zombie);
-// }
 let a;
 
 function handleHitZombies() {
@@ -1069,12 +957,6 @@ function handleHitZombies() {
   
     console.log("Zombie hit!");
     totalZombiesKilled++;
-    // if(totalZombiesKilled===12){
-    //   state.zombies.climbers.left.zbool=false;
-    //   state.zombies.climbers.right.zbool=false;
-    //   state.zombies.immunity.left.zbool=false;
-    //   state.zombies.immunity.right.zbool=false;
-    // }
     const hitImmunityZombie = hitZombies.some(zombie => zombie.immune);
 
 
@@ -1083,9 +965,13 @@ function handleHitZombies() {
       lives = 10; // Restore lives to 20
     }
 
-    if (totalZombiesKilled === 20) {
-      jetpackAvailable = true;
-      jetpack();
+    if (totalZombiesKilled >= 5) {
+      jetpackAvailable = false;
+      lives=10;
+
+      // jetpack();
+    document.getElementById('jetpackButton').style.display = 'block'; // Show the jetpack button
+
     }
     // Remove hit zombies from the arrays
     console.log(state.zombies.left);
@@ -1096,5 +982,105 @@ function handleHitZombies() {
     state.zombies.right = state.zombies.right.filter(zombie => !hitZombies.includes(zombie));
     console.log(state.zombies.right);
     console.log(state.zombies.left);
+  
+}
+}
+
+document.getElementById('jetpackButton').addEventListener('click', function() {
+  jetpackAvailable=true;
+  console.log("Jetpack button clicked");
+  lives=10;
+
+  // Function to activate the jetpack
+  function activateJetpack() {
+    state.box.y = 100; // Set box to y = 100
+    lives=10;
+
+    const jetpackDuration = 20000; // 20 seconds in milliseconds
+    let remainingTime = jetpackDuration; // Initialize remaining time
+
+    // Update remaining time every second
+    const countdownInterval = setInterval(() => {
+      remainingTime -= 1000; // Decrease remaining time by 1 second (1000 milliseconds)
+      lives=10;
+
+      // Update button text to show remaining time
+      updateButton(remainingTime / 1000);
+
+      if (remainingTime <= 0) {
+        clearInterval(countdownInterval); // Stop countdown when time is up
+        state.box.y = originalPositionY; // Return to original position
+        console.log("Jetpack time is up!");
+        // Optionally, you can reset the button text here if needed
+        // updateButton("Activate Jetpack");
+        jetpackAvailable=false;
+      }
+    }, 1000);
+
+    // Set a timeout to ensure the countdown stops after jetpack duration
+    setTimeout(() => {
+      clearInterval(countdownInterval); // Stop countdown if not already stopped
+      state.box.y = originalPositionY; // Return to original position
+      console.log("Jetpack time is up!");
+      jetpackAvailable=false;
+      // Optionally, you can reset the button text here if needed
+      // updateButton("Activate Jetpack");
+    }, jetpackDuration);
+
+    // Update button text to show initial remaining time
+    updateButton(remainingTime / 1000);
   }
+
+  // Function to update the button text with remaining time
+  function updateButton(seconds) {
+
+    const button = document.getElementById('jetpackButton');
+    button.textContent = `Activate Jetpack (${seconds.toFixed(0)}s)`;
+  }
+
+  // Store the original position
+  const originalPositionY = state.box.y;
+
+  // Call the function to activate the jetpack
+  activateJetpack();
+});
+
+
+function vanisher(block,a) {
+  if (block) {
+    block.blockpresent = false;  // Mark the block as not present
+    // Additional logic to visually remove the block if needed
+
+  }
+  if(a===1){
+    state.zombies.right.forEach(z=>{
+      z.velocityX=-1;
+    
+      if ((z.x + z.width > state.box.x && z.x < state.box.x + 70)) {
+        z.velocityX = 0;
+        z.x = state.box.x + 70;
+        handleHitZombies();
+        console.log("Climber zombie collided with the box and stopped.");
+        console.log(jetpackAvailable);
+        if (!jetpackAvailable) {
+          livess(z);
+        }
+      }
+});
+  }
+  if(a===-1){
+    state.zombies.left.forEach(z=>{
+      z.velocityX=1;
+    
+    if ((z.x + z.width > state.box.x && z.x < state.box.x + 70)) {
+    z.velocityX=0;
+    z.x = state.box.x - z.width;
+        handleHitZombies();
+        console.log(jetpackAvailable);
+        if (!jetpackAvailable) {
+          livess(z);
+        }
+    }
+  });
+}
 }
