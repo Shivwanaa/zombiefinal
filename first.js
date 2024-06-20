@@ -21,7 +21,8 @@ function generateLeftZombie() {
     velocityX: 1,
     width: 20,
     height: 90,
-    zbool: true
+    zbool: true,
+    direction:-1
   };
   state.zombies.left.push(newZombie);
   
@@ -36,7 +37,8 @@ function generateRightZombie() {
     velocityX: -1,
     width: 20,
     height: 90,
-    zbool: true
+    zbool: true,
+    direction:1
   };
   
   state.zombies.right.push(newZombie);
@@ -458,6 +460,25 @@ function update({ progress }) {
   });
 
   state.zombies.left.concat(state.zombies.right).forEach((zombie, index) => {
+    if (zombie.direction===1 &&(zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70)) {
+              zombie.velocityX = 0;
+              zombie.x = state.box.x + 70;
+              handleHitZombies();
+              console.log("Climber zombie collided with the box and stopped.");
+              console.log(jetpackAvailable);
+              if (!jetpackAvailable) {
+                livess(zombie);
+              }
+            }
+    if((zombie.direction === -1) && (zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70)) {
+              zombie.velocityX = 0;
+              zombie.x = state.box.x - zombie.width;
+              handleHitZombies();
+              console.log(jetpackAvailable);
+              if (!jetpackAvailable) {
+                livess(zombie);
+              }
+            }
     let rightIndex = index - state.zombies.left.length;
     if (index < state.zombies.left.length) {
       if (state.blocks.lblocka.x <= zombie.x + zombie.width && state.blocks.lblocka.blockpresent) {
@@ -548,7 +569,20 @@ function update({ progress }) {
             }
           }
         }
-      } else if (zombie.direction === 1) {
+      } 
+      if (zombie.direction === 1) {
+        zombie.x += zombie.velocityX;
+        if ((zombie.direction === 1) && (zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70)) {
+          zombie.velocityX = 0;
+          zombie.x = state.box.x + 70;
+          handleHitZombies();
+          console.log("Climber zombie collided with the box and stopped.");
+          console.log(jetpackAvailable);
+          if (!jetpackAvailable) {
+            livess(zombie);
+          }
+        }
+      
         zombie.velocityX = -1;
         if (zombie.x <= state.blocks.rblockb.x + state.blocks.rblockb.width) {
           console.log("Right zombie climbing rblocka");
