@@ -10,6 +10,7 @@ let vanr=false;
 let vanl=false;
 
 
+
 function generateLeftZombie() {
   const gap = 100;
   const lastZombie = state.zombies.left[state.zombies.left.length - 1];
@@ -147,16 +148,6 @@ bkGround.onload = function() {
 };
 
 let state = {
-  bomb: {
-    x: 0,
-    y: 0,
-    radius: 10, // Adjusted for bomb size
-    velocityX: 0,
-    velocityY: 0,
-    gravity: 0,
-    active: false,
-  },
-
   blocks: {
     rblock: {
       x: 960,
@@ -229,6 +220,7 @@ let state = {
       right:null,
     }
   },
+  weapons:{
   piston: {
     x: 0,
     y: 0,
@@ -236,7 +228,31 @@ let state = {
     recoil: 0,          // Recoil amount
     recoilRecovery: 0.1 ,
     originalX: 0,       // Original position to return to after recoil
-    originalY: 0// Recoil recovery speed
+    originalY: 0,
+    use:false,// Recoil recovery speed
+  },
+  pist:{
+    x: 0,
+    y: 0,
+    rotation: 0,
+    recoil: 0,          // Recoil amount
+    recoilRecovery: 0.1 ,
+    originalX: 0,       // Original position to return to after recoil
+    originalY: 0,
+    use:false,
+  },
+  bomb:{
+    x: 0,
+    y: 0,
+    radius: 10, // Adjusted for bomb size
+    velocityX: 0,
+    velocityY: 0,
+    gravity: 0,
+    active: false,
+    use:false,
+    balls:[],
+  },
+
   },
   mouse: {
     x: 0,
@@ -355,6 +371,7 @@ function draw({ ctx, state }) {
       // ctx.fillRect(zombie.x, zombie.y, zombie.width, zombie.height);
     }
   });
+  weapons();
 
   // Draw the pistons (brown boxes)
   ctx.fillStyle = "rgb(200 55 0)";
@@ -380,47 +397,75 @@ function draw({ ctx, state }) {
   ctx.save();
 
   // Move the origin to the piston's position
-  ctx.translate(state.piston.x, state.piston.y);
+  if(state.weapons.piston.use){
+              ctx.save();
+              ctx.translate(state.weapons.piston.x, state.weapons.piston.y);
+              ctx.rotate(state.weapons.piston.rotation);
+              ctx.fillStyle = "rgb(0, 255, 0)";
+              ctx.fillRect(-50, -10, 100, 20);
+              ctx.restore();
+}
+else if(state.weapons.bomb.use){
+    ctx.save();
+    ctx.translate(state.weapons.bomb.x, state.weapons.bomb.y);
+    ctx.rotate(state.weapons.bomb.rotation);
+    ctx.fillStyle = "black";
+    ctx.fillRect(-50, -10, 100, 20); // Cannon
+    ctx.restore();
 
-  // Rotate the canvas to the piston's rotation angle
-  ctx.rotate(state.piston.rotation);
-  const recoilOffsetX = Math.cos(state.piston.rotation) * state.piston.recoil;
-  const recoilOffsetY = Math.sin(state.piston.rotation) * state.piston.recoil;
-
-  // Draw the piston centered on the new origin with recoil offset
-  ctx.fillStyle = "rgb(0, 255, 0)";
-  ctx.fillRect(-50 + recoilOffsetX, -10 + recoilOffsetY, 100, 20);
-
-  // Draw the piston centered on the new origin
+    state.weapons.bomb.balls.forEach(ball => {
+        ctx.fillStyle = "black";
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, 10, 0, Math.PI*2);
+        ctx.fill();
+    });
 
 
-  // Restore the context to its original state
-  ctx.restore();
 
-  // Draw the bullet if it's active
+}
+if(state.weapons.piston.use){
   if (state.bullet.active) {
     ctx.fillStyle = "red";
     ctx.beginPath();
     ctx.arc(state.bullet.x, state.bullet.y, 10, 0, 2 * Math.PI);
     ctx.fill();
   }
-  if (state.bomb.active) {
-    ctx.beginPath();
-    ctx.arc(state.bomb.x, state.bomb.y, state.bomb.radius, 0, 2 * Math.PI);
-    ctx.fillStyle = 'red';
-    ctx.fill();
-    ctx.closePath();
+}
+}
+function updateWeaponPosition(weapon) {
+  weapon.x = state.box.x + 55;
+  weapon.y = state.box.y + 50;
+}
+
+function updateWeaponRotation(weapon) {
+  if (state.rotating) {
+      const deltaX = state.mouse.x - weapon.x;
+      const deltaY = state.mouse.y - weapon.y;
+      weapon.rotation = Math.atan2(deltaY, deltaX);
   }
 }
+
 
 function update({ progress }) {
   manageZombieGeneration();
   const speed = progress * 0.1;
   updatePlayerPosition(speed);
-  updatePistonPosition();
-  updatePistonRotation();
-  updateBulletPosition(speed);
-
+  if(state.weapons.piston.use){
+    updateWeaponRotation(state.weapons.piston);
+    updatePistonRotation(state.weapons.piston);
+    updateBulletPosition(speed);
+  }
+  if(state.weapons.pist.use){
+    updateWeaponRotation(state.weapons.pist);
+    updatePistonPosition(state.weapons.pist);
+    updatePistonRotation(state.weapons.pist);
+  }
+  if(state.weapons.bomb.use){
+  updateWeaponRotation(state.weapons.bomb);
+  updateBombs();
+  }
+  
+  
   let prevZombieLeft = null;
   state.zombies.left.forEach(zombie => {
     if (zombie.zbool) {
@@ -463,7 +508,8 @@ function update({ progress }) {
     if (zombie.direction===1 &&(zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70)) {
               zombie.velocityX = 0;
               zombie.x = state.box.x + 70;
-              handleHitZombies();
+              handleHitZombies(state.bullet);
+        handleHitZombies(state.weapons.bomb);
               console.log("Climber zombie collided with the box and stopped.");
               console.log(jetpackAvailable);
               if (!jetpackAvailable) {
@@ -473,7 +519,8 @@ function update({ progress }) {
     if((zombie.direction === -1) && (zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70)) {
               zombie.velocityX = 0;
               zombie.x = state.box.x - zombie.width;
-              handleHitZombies();
+              handleHitZombies(state.bullet);
+              handleHitZombies(state.weapons.bomb);
               console.log(jetpackAvailable);
               if (!jetpackAvailable) {
                 livess(zombie);
@@ -508,7 +555,9 @@ function update({ progress }) {
         if ((zombie.direction === -1) && (zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70)) {
           zombie.velocityX = 0;
           zombie.x = state.box.x - zombie.width;
-          handleHitZombies();
+          // handleHitZombies();
+          handleHitZombies(state.bullet);
+        handleHitZombies(state.weapons.bomb);
           console.log(jetpackAvailable);
           if (!jetpackAvailable) {
             livess(zombie);
@@ -525,7 +574,8 @@ function update({ progress }) {
         if ((zombie.direction === 1) && (zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70)) {
           zombie.velocityX = 0;
           zombie.x = state.box.x + 70;
-          handleHitZombies();
+          handleHitZombies(state.bullet);
+        handleHitZombies(state.weapons.bomb);
           console.log("Climber zombie collided with the box and stopped.");
           console.log(jetpackAvailable);
           if (!jetpackAvailable) {
@@ -560,7 +610,8 @@ function update({ progress }) {
               if ((zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70)) {
                 zombie.velocityX = 0;
                 zombie.x = state.box.x - zombie.width;
-                handleHitZombies();
+                handleHitZombies(state.bullet);
+        handleHitZombies(state.weapons.bomb);
                 console.log(jetpackAvailable);
                 if (!jetpackAvailable) {
                   livess(zombie);
@@ -575,7 +626,8 @@ function update({ progress }) {
         if ((zombie.direction === 1) && (zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70)) {
           zombie.velocityX = 0;
           zombie.x = state.box.x + 70;
-          handleHitZombies();
+          handleHitZombies(state.bullet);
+        handleHitZombies(state.weapons.bomb);
           console.log("Climber zombie collided with the box and stopped.");
           console.log(jetpackAvailable);
           if (!jetpackAvailable) {
@@ -591,20 +643,11 @@ function update({ progress }) {
           if (zombie.x + zombie.width <= state.blocks.rblockb.x) {
             vanisher(state.blocks.rblocka, zombie.direction);
             zombie.y = 650;
-            // if ((zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70)) {
-            //   zombie.velocityX = 0;
-            //   zombie.x = state.box.x + 70;
-            //   handleHitZombies();
-            //   console.log("Climber zombie collided with the box and stopped.");
-            //   console.log(jetpackAvailable);
-            //   if (!jetpackAvailable) {
-            //     livess(zombie);
-            //   }
-            // }
             if ((zombie.x + zombie.width > state.box.x && zombie.x < state.box.x + 70)) {
               zombie.velocityX = 0;
               zombie.x = state.box.x + 70;
-              handleHitZombies();
+              handleHitZombies(state.bullet);
+        handleHitZombies(state.weapons.bomb);
               console.log("Climber zombie collided with the box and stopped.");
               console.log(jetpackAvailable);
               if (!jetpackAvailable) {
@@ -640,7 +683,8 @@ function update({ progress }) {
         } else if (zombie.direction === 1) {
           zombie.x = state.box.x + state.box.width;
         }
-        handleHitZombies();
+        handleHitZombies(state.bullet);
+        handleHitZombies(state.weapons.bomb);
         console.log("Zombie collided with the box and stopped.");
         console.log(jetpackAvailable);
         if (!jetpackAvailable) {
@@ -650,13 +694,6 @@ function update({ progress }) {
     }
   });
 }
-
-
-
-
-
-
-
 
 
 
@@ -698,16 +735,18 @@ function updateBoxJump(speed) {
   }
 }
 
-function updatePistonPosition() {
-  state.piston.x = state.box.x + 55;
-  state.piston.y = state.box.y + 50;
+
+function updatePistonPosition(a) {
+  console.log(a);
+  a.x = state.box.x + 55;
+  a.y = state.box.y + 50;
 }
 
-function updatePistonRotation() {
+function updatePistonRotation(a) {
   if (state.rotating) {
-    const deltaX = state.mouse.x - state.piston.x;
-    const deltaY = state.mouse.y - state.piston.y;
-    state.piston.rotation = Math.atan2(deltaY, deltaX);
+    const deltaX = state.mouse.x - a.x;
+    const deltaY = state.mouse.y - a.y;
+    a.rotation = Math.atan2(deltaY, deltaX);
   }
 }
 
@@ -721,13 +760,48 @@ function updateBulletPosition(speed) {
       state.bullet.active = false;
     }
 
-    handleHitZombies();
+    
+    handleHitZombies(state.bullet);
+    handleHitZombies(state.weapons.bomb);
+  // 
+}
+}
+
+function updateBombs() {
+  if (state.weapons.bomb.use) {
+      state.weapons.bomb.balls.forEach(ball => {
+          ball.x += ball.velocityX;
+          ball.y += ball.velocityY;
+          ball.velocityY += state.gravity;
+      });
+      
+
+      state.weapons.bomb.balls = state.weapons.bomb.balls.filter(ball => ball.x < canvas.width && ball.y < canvas.height);
   }
 }
 
+let frameCount = 0; // Initialize frame count for periodic acceleration
 
+function shootBombs() {
+    const numBombs = 5;
+    const baseAngleIncrement = Math.PI / 8; // Base angle increment
 
-// Other functions related to game logic
+    // Create 5 bomb balls with the same initial position and rotation
+    for (let i = 0; i < numBombs; i++) {
+        // Calculate periodic angle variation
+        const angleVariation = (i - 2) * baseAngleIncrement * (1 + 0.5 * Math.sin(frameCount / 10)); // Sinusoidal modulation
+        const speed = 7; // Set a consistent speed for all bombs
+
+        state.weapons.bomb.balls.push({
+            x: state.weapons.bomb.x,
+            y: state.weapons.bomb.y,
+            velocityX: speed * Math.cos(state.weapons.bomb.rotation + angleVariation),
+            velocityY: speed * Math.sin(state.weapons.bomb.rotation + angleVariation)
+        });
+    }
+    frameCount++; // Increment frame count for next call
+    // No need to call handleHitZombies here, it should be called in the game loop when bombs are updated
+}
 
 
 let lastRender=0;
@@ -832,15 +906,17 @@ window.addEventListener('mousemove', (event) => {
     // Shoot the bullet
     state.bullet.active = true;
     const bulletSpeed = 10; // Initial speed of the bullet
-    state.bullet.x = state.piston.x - 50 * Math.cos(state.piston.rotation); // Starting from the left end of the piston
-    state.bullet.y = state.piston.y - 50 * Math.sin(state.piston.rotation); // Starting from the left end of the piston
-    state.bullet.velocityX = -bulletSpeed * Math.cos(state.piston.rotation); // Bullet velocity in X direction
-    state.bullet.velocityY = -bulletSpeed * Math.sin(state.piston.rotation);
+    state.bullet.x = state.weapons.piston.x - 50 * Math.cos(state.weapons.piston.rotation); // Starting from the left end of the piston
+    state.bullet.y = state.weapons.piston.y - 50 * Math.sin(state.weapons.piston.rotation); // Starting from the left end of the piston
+    state.bullet.velocityX = -bulletSpeed * Math.cos(state.weapons.piston.rotation); // Bullet velocity in X direction
+    state.bullet.velocityY = -bulletSpeed * Math.sin(state.weapons.piston.rotation);
     // state.piston.recoil = -5; // Recoil amount // Bullet velocity in Y direction
   }
   
     if (event.key === 'b' || event.key === 'B') {
-      throwBomb(state.box.x + 35, state.box.y + 35); // Example: throw bomb near the player's box
+      state.bullet.active = true;
+    shootBombs();
+      // throwBomb(state.box.x + 35, state.box.y + 35); // Example: throw bomb near the player's box
     }
   
   if(event.code==='KeyP'){
@@ -910,10 +986,6 @@ window.addEventListener('mousemove', (event) => {
     ctx.fillStyle = "rgb(0 255 0)";
     ctx.fillRect(barX, barY, barWidth * lifePercentage, barHeight);
   }
-
-
-
-
 const interval=10/60;
 const maxHoverDuration = 20 * 1000; // Maximum hover duration in milliseconds (20 seconds)
 
@@ -938,17 +1010,6 @@ function climberzombie(zombie,y) {
 
   // Set an interval to move the zombie up
   const climbInterval = setInterval(climb, 1000 / 60);
-}
-function throwBomb(x, y) {
-  if (!state.bomb.active) {
-    state.bomb.active = true;
-    state.bomb.x = x;   // Set bomb coordinates
-    state.bomb.y = y;
-    state.bomb.velocityX = 5;  // Initial X velocity
-    state.bomb.velocityY = -10; // Initial Y velocity (upwards)
-    
-    // Additional logic such as animation or sound effects can be added here
-  }
 }
 
 function livess(zombie){
@@ -975,50 +1036,62 @@ function livess(zombie){
 }
 let a;
 
-function handleHitZombies() {
-  let hitZombies = state.zombies.left.concat(state.zombies.right).filter(zombie => {
-    return state.bullet.x > zombie.x &&
-           state.bullet.x < zombie.x + zombie.width &&
-           state.bullet.y > zombie.y &&
-           state.bullet.y < zombie.y + zombie.height &&
-           zombie.zbool;
+function handleHitZombies(projectile) {
+  console.log(projectile);
+  
+  // Determine if the projectile is a bomb ball or a bullet
+  let projectiles = [];
+  if (projectile === state.weapons.bomb) {
+      projectiles = state.weapons.bomb.balls;
+  } else {
+      projectiles = [projectile];
+  }
+
+  projectiles.forEach(proj => {
+      let hitZombies = state.zombies.left.concat(state.zombies.right).filter(zombie => {
+          return proj.x > zombie.x &&
+                 proj.x < zombie.x + zombie.width &&
+                 proj.y > zombie.y &&
+                 proj.y < zombie.y + zombie.height &&
+                 zombie.zbool;
+      });
+
+      if (hitZombies.length > 0) {
+          console.log("Zombie hit!");
+
+          hitZombies.forEach(zombie => {
+              zombie.zbool = false; // Mark the zombie as dead
+          });
+
+          // Increment total killed zombies
+          state.totalZombiesKilled += hitZombies.length;
+
+          // Check if immunity zombie was hit
+          const hitImmunityZombie = hitZombies.some(zombie => zombie.immune);
+
+          if (hitImmunityZombie) {
+              console.log("Immunity zombie hit!");
+              state.lives = 10; // Restore lives to 10
+          }
+
+          // Remove hit zombies from the arrays
+          state.zombies.left = state.zombies.left.filter(zombie => !hitZombies.includes(zombie));
+          state.zombies.right = state.zombies.right.filter(zombie => !hitZombies.includes(zombie));
+
+          // Remove the projectile after hitting a zombie
+          if (projectile !== state.bullet) {
+              state.weapons.bomb.balls = state.weapons.bomb.balls.filter(ball => ball !== proj);
+          }
+      }
   });
-  // hitZombies.forEach(zombie => {
-  //   zombie.zbool = false;
-  // });
 
-  if (hitZombies.length > 0) {
-  
-    console.log("Zombie hit!");
-    totalZombiesKilled++;
-    const hitImmunityZombie = hitZombies.some(zombie => zombie.immune);
-
-
-    if (hitImmunityZombie) {
-      console.log("Immunity zombie hit!");
-      lives = 10; // Restore lives to 20
-    }
-
-    if (totalZombiesKilled >= 5) {
-      jetpackAvailable = false;
-      lives=10;
-
-      // jetpack();
-    document.getElementById('jetpackButton').style.display = 'block'; // Show the jetpack button
-
-    }
-    // Remove hit zombies from the arrays
-    console.log(state.zombies.left);
-    console.log(state.zombies.right);
-    
-    // console.log(hitZombies);
-    state.zombies.left = state.zombies.left.filter(zombie => !hitZombies.includes(zombie));
-    state.zombies.right = state.zombies.right.filter(zombie => !hitZombies.includes(zombie));
-    console.log(state.zombies.right);
-    console.log(state.zombies.left);
-  
+  // Additional logic for updating UI or other game state
+  if (state.totalZombiesKilled >= 5) {
+      state.jetpackAvailable = true;
+      document.getElementById('jetpackButton').style.display = 'block'; // Show the jetpack button
+  }
 }
-}
+
 
 document.getElementById('jetpackButton').addEventListener('click', function() {
   jetpackAvailable=true;
@@ -1093,7 +1166,8 @@ function vanisher(block,a) {
       if ((z.x + z.width > state.box.x && z.x < state.box.x + 70)) {
         z.velocityX = 0;
         z.x = state.box.x + 70;
-        handleHitZombies();
+        handleHitZombies(state.bullet);
+        handleHitZombies(state.weapons.bomb);
         console.log("Climber zombie collided with the box and stopped.");
         console.log(jetpackAvailable);
         if (!jetpackAvailable) {
@@ -1109,7 +1183,10 @@ function vanisher(block,a) {
     if ((z.x + z.width > state.box.x && z.x < state.box.x + 70)) {
     z.velocityX=0;
     z.x = state.box.x - z.width;
-        handleHitZombies();
+    handleHitZombies(state.bullet);
+    handleHitZombies(state.weapons.bomb);
+    // handleHitZombies(state.bullet);
+    // handleHitZombies(state.weapons.bomb.balls);
         console.log(jetpackAvailable);
         if (!jetpackAvailable) {
           livess(z);
@@ -1118,3 +1195,45 @@ function vanisher(block,a) {
   });
 }
 }
+// const canvas = document.getElementById('canvas');
+        function weapons() {
+          console.log("weapons");
+            // ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const weaponNames = ["bomb", "straight", "piston"];
+            const buttonWidth = 150;
+            const buttonHeight = 50;
+            const buttonX = canvas.width / 2 - buttonWidth / 2;
+            console.log(buttonX);
+
+            weaponNames.forEach((weapon, index) => {
+                const buttonY = 100 + (index * (buttonHeight + 20));
+                console.log(buttonY);
+
+                // Draw button
+                ctx.fillStyle = "blue";
+                ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
+
+                // Draw text on button
+                ctx.fillStyle = "white";
+                ctx.font = "24px Arial";
+                ctx.fillText(weapon, buttonX + 20, buttonY + 30);
+
+                // Add event listener for each button
+                canvas.addEventListener('click', (event) => {
+                    const rect = canvas.getBoundingClientRect();
+                    const x = event.clientX - rect.left;
+                    const y = event.clientY - rect.top;
+
+                    if (x > buttonX && x < buttonX + buttonWidth && y > buttonY && y < buttonY + buttonHeight) {
+                      state.weapons[weapon].use=true;
+                
+                        updatePistonPosition(state.weapons[weapon]);
+
+                        updatePistonRotation(state.weapons[weapon]);
+
+                    }
+                });
+            });
+        }
+       
