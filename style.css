@@ -6,6 +6,10 @@ body, html {
     justify-content: center;
     align-items: center;
     height: 100vh;
+    background-image: url('./images/zombiebg.png');
+    background-size: cover;
+            background-repeat: no-repeat;
+            background-position: center;
   }
   #playScreen {
     display: flex;
@@ -18,10 +22,13 @@ body, html {
     color: white;
     font-size: 24px;
     z-index: 10;
+    visibility: visible;
 }
   canvas {
     display: block;
-    border: 1px solid black; /* Optional: Add a border to the canvas */
+    border: 1px solid black;
+     /* Optional: Add a border to the canvas */
+    visibility : 'visible';
   }
   #jetpackButton {
     display: none;
@@ -33,3 +40,82 @@ body, html {
     font-size: 16px;
     cursor: pointer;
   }
+
+  
+#namePopup, #leaderboard {
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent dark background */
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+  color: white;
+}
+
+#namePopup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 300px;
+}
+
+#namePopup label, #namePopup input[type="text"], #namePopup button {
+  width: 100%;
+  margin-top: 10px;
+}
+
+#namePopup button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 10px;
+  cursor: pointer;
+}
+
+#namePopup button:hover {
+  background-color: #0056b3;
+}
+
+#leaderboard {
+  display: none;
+  width: 80%;
+  max-width: 600px;
+}
+
+#leaderboard h2 {
+  text-align: center;
+  font-size: 24px;
+  margin-bottom: 20px;
+}
+
+#leaderboard ul {
+  list-style: none;
+  padding: 0;
+}
+
+#leaderboard li {
+  font-size: 18px;
+  padding: 10px;
+  border-bottom: 1px solid #555;
+}
+
+#leaderboard li:last-child {
+  border-bottom: none;
+}
+
+#leaderboardButton {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  background-color: #28a745;
+  color: white;
+  cursor: pointer;
+}
+
+#leaderboardButton:hover {
+  background-color: #218838;
+}
